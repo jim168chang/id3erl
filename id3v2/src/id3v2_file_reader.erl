@@ -1,23 +1,14 @@
 %% Copyright
--module(id3v2).
+-module(id3v2_file_reader).
 -author("Nikolay Mavrenkov (koluch@koluch.ru)").
 
 %% API
--export([start/0,read_tag/1,read_syncsafe_int/1]).
--include("id3v2.hrl").
+-export([read_file/1]).
+-include("../../headers/id3v2.hrl").
 -define(MAJOR_VERSION,32#04).
 -define(REVISION,32#00).
 
-start() ->
-    FileName = "test.txt",
-    Mp3FileName = "2.mp3",
-    id3v2_test:start(FileName),
-    read_tag(Mp3FileName)
-.
-
-
-
-read_tag(FileName) ->
+read_file(FileName) ->
     {ok, File} = file:open(FileName, [read,binary]),
     Header = read_header(File),
 

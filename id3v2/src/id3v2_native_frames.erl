@@ -1,7 +1,7 @@
 %% Copyright
 -module(id3v2_native_frames).
 -author("Nikolay Mavrenkov (koluch@koluch.ru)").
--include("id3v2.hrl").
+-include("../../headers/id3v2.hrl").
 
 %% API
 -export([is_text/1, parse/2,get_data_type/1]).
