@@ -4,7 +4,7 @@ VERSION=0.1.0
 FULL_APP_NAME=$(APP_NAME)-$(VERSION)
 BUILD_DIR=$(ROOT)/$(FULL_APP_NAME)
 
-all: compile
+all: build
 
 test:
 	pwd
