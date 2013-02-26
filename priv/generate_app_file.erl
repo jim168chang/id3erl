@@ -7,12 +7,12 @@
 
 generate(Settings) ->
     Id = get_value(id,Settings),
-    SourceFileName = "../" ++ atom_to_list(Id) ++ ".app.src",
+    SourceFileName = atom_to_list(Id) ++ ".app.src",
     {ok, [FileContent]} = file:consult(SourceFileName),
     {application, Id, Values} = FileContent,
     App = {application, Id, create_full_settings(Values,Settings)},
     io:format("App: ~p~n", [App]),
-    AppFileName = "../" ++ atom_to_list(Id) ++ ".app",
+    AppFileName = atom_to_list(Id) ++ ".app",
     unconsult(AppFileName, [App]).
 
 

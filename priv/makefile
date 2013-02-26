@@ -20,7 +20,7 @@ build: clean
 	erlc generate_app_file.erl
 	erl -eval 'generate_app_file:generate([{id, $(APP_NAME)},{vsn,"$(VERSION)"}])' -s init stop -noshell
 	cp -r $(ROOT)/include $(BUILD_DIR)
-	mv $(ROOT)/$(APP_NAME).app $(BUILD_DIR)/ebin
+	mv $(APP_NAME).app $(BUILD_DIR)/ebin
 
 
 install: build
