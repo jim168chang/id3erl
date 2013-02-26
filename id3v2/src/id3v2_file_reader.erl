@@ -4,7 +4,7 @@
 
 %% API
 -export([read_file/1]).
--include("../../headers/id3v2.hrl").
+-include("../include/id3v2.hrl").
 -define(MAJOR_VERSION,32#04).
 -define(REVISION,32#00).
 

@@ -1,0 +1,10 @@
+%% Copyright
+{application, id3v2, [
+    {description, "Implementation of id2v2"},
+    {registered, []},
+    {applications, [
+        kernel,
+        stdlib
+    ]},
+    {env, []}
+]}.
