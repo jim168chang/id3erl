@@ -12,20 +12,20 @@ read_file(FileName) ->
     {ok, File} = file:open(FileName, [read,binary]),
     Header = read_header(File),
 
-    ExtHeader = case Header#header.flags#header_flags.ext_header of
+    ExtHeader = case Header#id3_header.flags#id3_header_flags.ext_header of
         true -> read_ext_header(File);
         _ -> not_present
     end,
 
-    FramesSize = Header#header.size - get_ext_header_size(ExtHeader),
+    FramesSize = Header#id3_header.size - get_ext_header_size(ExtHeader),
     Frames = read_frames(File, FramesSize),
 
-    Footer = case Header#header.flags#header_flags.footer of
+    Footer = case Header#id3_header.flags#id3_header_flags.footer of
         true -> read_footer(File);
         _ -> not_present
     end,
 
-    #tag{
+    #id3_tag{
             header = Header,
             ext_header = ExtHeader,
             frames = Frames,
@@ -40,9 +40,9 @@ read_header(File) ->
         {ok, <<"ID3",?MAJOR_VERSION:8 ,?REVISION:8,Flags:1/binary,SyncsafeSize:32>>} ->
             case Flags of
                 <<Unsync:1,Ext:1,Exp:1,Footer:1,2#0000:4>> ->
-                    #header{
-                            version=#header_version{major=?MAJOR_VERSION,revision=?REVISION},
-                            flags=#header_flags{
+                    #id3_header{
+                            version=#id3_header_version{major=?MAJOR_VERSION,revision=?REVISION},
+                            flags=#id3_header_flags{
                                     unsinc=int_to_bool(Unsync),
                                     ext_header =int_to_bool(Ext),
                                     experiment =int_to_bool(Exp),
@@ -64,7 +64,7 @@ read_ext_header(File) ->
             UpdateFlag = read_ext_header_flag(File, update, Update),
             CRCFlag = read_ext_header_flag(File, crc, CRC),
             RestsFlag = read_ext_header_flag(File, rests, Rests),
-            #ext_header{
+            #id3_ext_header{
                 size = read_syncsafe_int(SyncsafeSize),
                 flags = [UpdateFlag,CRCFlag,RestsFlag]
             }
@@ -73,11 +73,11 @@ read_ext_header(File) ->
 read_ext_header_flag(File, Name, true) ->
     {ok, <<FlagLength>>} = file:read(File, 1),
     {ok, FlagData} = file:read(File, FlagLength),
-    #ext_header_flag{name = Name, value = true, data = FlagData};
-read_ext_header_flag(_File, Name, _False) -> #ext_header_flag{name = Name, value = false}.
+    #id3_ext_header_flag{name = Name, value = true, data = FlagData};
+read_ext_header_flag(_File, Name, _False) -> #id3_ext_header_flag{name = Name, value = false}.
 
 get_ext_header_size(not_present) -> 0;
-get_ext_header_size(ExtHeader) -> ExtHeader#ext_header.size + 6.
+get_ext_header_size(ExtHeader) -> ExtHeader#id3_ext_header.size + 6.
 
 
 %%%%%%%%
@@ -92,7 +92,7 @@ read_frames1(File, FramesSize, Frames) ->
     case Frame of
         padding -> read_frames1(File, 0, [padding|Frames]);
         _ ->
-            Size = Frame#frame.size + 10,
+            Size = Frame#id3_frame.size + 10,
             read_frames1(File, FramesSize - Size, [Frame|Frames])
     end.
 
@@ -105,7 +105,7 @@ read_frame(File) ->
             Id = binary_to_list(BinId),
             RawData = read_frame_data(File, Size),
             ParsedData = id3v2_native_frames:parse(Id, RawData),
-            #frame{
+            #id3_frame{
                 id = Id,
                 size = Size,
                 flags = Flags,
@@ -125,9 +125,9 @@ read_footer(File) ->
         {ok, <<"3DI",?MAJOR_VERSION:8 ,?REVISION:8,Flags:1/binary,Size:32>>} ->
             case Flags of
                 <<Unsync:1,Ext:1,Exp:1,Footer:1,2#0000:4>> ->
-                    #footer{
-                            version=#footer_version{major=?MAJOR_VERSION,revision=?REVISION},
-                            flags=#footer_flags{
+                    #id3_footer{
+                            version=#id3_footer_version{major=?MAJOR_VERSION,revision=?REVISION},
+                            flags=#id3_footer_flags{
                                     unsinc=int_to_bool(Unsync),
                                     ext_header =int_to_bool(Ext),
                                     experiment =int_to_bool(Exp),

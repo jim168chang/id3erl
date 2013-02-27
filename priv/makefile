@@ -28,7 +28,7 @@ install: build
 	rm -rf ~/.erlang_libs/$(APP_NAME)-*
 	cp -r $(BUILD_DIR) ~/.erlang_libs/
 
-run: compile
-	erl -eval 'Info = music_info:get_info("../test/2.mp3"), io:format("Info: ~p~n", [Info])' -s init stop -noshell
+run: install
+	erl -eval 'Info = id3v2_file_reader:read_file("/home/koluch/audio/music/mp3//Sound Dimension/Sound Dimension - Mojo Rocksteady Beat (2008)/08 - In Cold Blood.mp3"), io:format("Info: ~p~n", [Info])' -s init stop -noshell
 
 
