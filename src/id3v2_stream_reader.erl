@@ -11,7 +11,7 @@
 -define(ID3_HEADER_SIZE, 10).
 
 %% API
--export([test/1, start/1, get_header/1, get_frame/2, stop/1, get_tag/1]).
+-export([test/1, start/1, get_header/1, get_frame/2, get_tag/1, stop/1]).
 
 test(FileName) ->
     io:format("Start~n", []),
@@ -20,11 +20,11 @@ test(FileName) ->
     Srv = start(Stream),
     io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
      io:format("Get frame TPE1: ~p~n", [get_frame(Srv, "TPE1")]),
-    io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
-    io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
+%%     io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
+%%     io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
     io:format("Get frame AAAA: ~p~n", [get_frame(Srv, "AAAA")]),
     io:format("Get frame TIT2: ~p~n", [get_frame(Srv, "TIT2")]),
-    io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
+%%     io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
     io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
     io:format("Tag: ~p~n", [get_tag(Srv)]),
     stop(Srv)
@@ -66,13 +66,13 @@ loop({Stream, Tag}) ->
                             From ! {self(), Frame},
                             loop({Stream, UpdTag2});
                         _ ->
-                            case find_frame_in_stream(Stream, UpdTag2, UpdTag2#id3_tag.frames, Id) of
-                                {ok, {Frame, NewFrames}} ->
+                            case find_frame_in_stream(Stream, UpdTag2, Id) of
+                                {ok, {Frame, NewTag}} ->
                                     From ! {self(), Frame},
-                                    loop({Stream, UpdTag2#id3_tag{frames = NewFrames}});
-                                {error, {Why, NewFrames}} ->
+                                    loop({Stream, NewTag});
+                                {error, {Why, NewTag}} ->
                                     From ! {self(), {error, Why}},
-                                    loop({Stream, UpdTag2#id3_tag{frames = NewFrames}})
+                                    loop({Stream, NewTag})
                             end
                     end
             end;
@@ -87,11 +87,10 @@ loop({Stream, Tag}) ->
                 partly ->
                     Frame = read_frame(Stream),
                     From ! {self(), Frame},
-                    NewFrames = case Frame of
-                        padding -> update_frames_add_padding(UpdTag2, UpdTag2#id3_tag.frames);
-                        _ -> update_frames_add_frame(UpdTag2, UpdTag2#id3_tag.frames, Frame)
+                    UpdTag3 = case Frame of
+                        padding -> update_tag_add_padding(UpdTag2);
+                        _ -> update_tag_add_frame(UpdTag2, Frame)
                     end,
-                    UpdTag3 = UpdTag2#id3_tag{frames = NewFrames},
                     loop({Stream, UpdTag3})
             end;
 
@@ -139,9 +138,8 @@ update_tag_fill_ext_header(Tag, Stream) ->
         _ -> Tag
     end.
 
-%%%%%%%%
-%% Functions for update frame list
-update_frames_add_padding(Tag, Frames) ->
+update_tag_add_padding(Tag) ->
+    Frames = Tag#id3_tag.frames,
     PaddingSize = Tag#id3_tag.header#id3_header.size
         - Frames#id3_frames.size
         - get_ext_header_size(Tag#id3_tag.ext_header),
@@ -149,15 +147,19 @@ update_frames_add_padding(Tag, Frames) ->
             list = [{padding, PaddingSize} | Frames#id3_frames.list],
             size = Frames#id3_frames.size + PaddingSize
     },
-    update_frames_state(Tag, NewFrames).
+    NewFrames1 = update_frames_state(Tag, NewFrames),
+    Tag#id3_tag{frames = NewFrames1}.
 
-update_frames_add_frame(Tag, Frames, Frame) ->
+update_tag_add_frame(Tag, Frame) ->
+    Frames = Tag#id3_tag.frames,
     NewSize = Frames#id3_frames.size + Frame#id3_frame.size + ?ID3_FRAME_HEADER_SIZE,
     NewFrames = Frames#id3_frames{
             list = [Frame | Frames#id3_frames.list],
             size = NewSize
     },
-    update_frames_state(Tag, NewFrames).
+    NewFrames1 = update_frames_state(Tag, NewFrames),
+    Tag#id3_tag{frames = NewFrames1}.
+
 
 
 update_frames_state(Tag, NewFrames) ->
@@ -176,18 +178,18 @@ find_readed([Frame = #id3_frame{id=Id}|_], Id) -> {ok, Frame};
 find_readed([_|Rest], Id) -> find_readed(Rest, Id).
 
 %% Read frames from stream, until found needed frame
-find_frame_in_stream(Stream, Tag, undefined, Id) -> find_frame_in_stream(Stream, Tag, #id3_frames{}, Id);
-find_frame_in_stream(Stream, Tag, Frames, Id) ->
+%% find_frame_in_stream(Stream, Tag, undefined, Id) -> find_frame_in_stream(Stream, Tag, #id3_frames{}, Id);
+find_frame_in_stream(Stream, Tag, Id) ->
     Frame = read_frame(Stream),
     case Frame of
         padding ->
-            {error, {not_found, update_frames_add_padding(Tag, Frames)}};
+            {error, {not_found, update_tag_add_padding(Tag)}};
         _ ->
-            NewFrames = update_frames_add_frame(Tag, Frames, Frame),
+            NewTag = update_tag_add_frame(Tag, Frame),
             case Frame#id3_frame.id of
-                Id -> {ok, {Frame, NewFrames}};
+                Id -> {ok, {Frame, NewTag}};
                 _ ->
-                    find_frame_in_stream(Stream, Tag, NewFrames, Id)
+                    find_frame_in_stream(Stream, NewTag, Id)
             end
     end.
 
@@ -212,8 +214,7 @@ read_header(Stream) ->
                                     footer = int_to_bool(Footer)},
                             size = read_syncsafe_int(SyncsafeSize)
                     }
-            end;
-         Other -> io:format("Other output: ~p~n", [Other])
+            end
     end.
 
 read_ext_header(Stream) ->
