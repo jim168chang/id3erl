@@ -69,12 +69,10 @@ loop({Stream, Tag}) ->
                             case find_frame_in_stream(Stream, UpdTag2, UpdTag2#id3_tag.frames, Id) of
                                 {ok, {Frame, NewFrames}} ->
                                     From ! {self(), Frame},
-                                    UpdTag3 = UpdTag2#id3_tag{frames = update_frames_state(UpdTag2, NewFrames)},
-                                    loop({Stream, UpdTag3});
+                                    loop({Stream, UpdTag2#id3_tag{frames = NewFrames}});
                                 {error, {Why, NewFrames}} ->
                                     From ! {self(), {error, Why}},
-                                    UpdTag3 = UpdTag2#id3_tag{frames = update_frames_state(UpdTag2,NewFrames)},
-                                    loop({Stream, UpdTag3})
+                                    loop({Stream, UpdTag2#id3_tag{frames = NewFrames}})
                             end
                     end
             end;
@@ -84,27 +82,14 @@ loop({Stream, Tag}) ->
             UpdTag2 = update_tag_fill_ext_header(UpdTag, Stream),
             case UpdTag2#id3_tag.frames#id3_frames.state of
                 full ->
-                    From ! {self(), {error, not_found}},
+                    From ! {self(), {error, no_more_frames}},
                     loop({Stream, UpdTag2});
                 partly ->
                     Frame = read_frame(Stream),
                     From ! {self(), Frame},
-                    FrameList = UpdTag2#id3_tag.frames#id3_frames.list,
-                    FramesSize = UpdTag2#id3_tag.frames#id3_frames.size,
                     NewFrames = case Frame of
-                        padding ->
-                            PaddingSize = UpdTag2#id3_tag.header#id3_header.size
-                                - FramesSize
-                                - get_ext_header_size(UpdTag2#id3_tag.ext_header),
-                            UpdTag2#id3_tag.frames#id3_frames{
-                                list = lists:reverse([{padding,PaddingSize} | FrameList]),
-                                state = full,
-                                size = FramesSize + PaddingSize
-                            };
-                        _ -> UpdTag2#id3_tag.frames#id3_frames{
-                                list = [Frame|FrameList],
-                                size = FramesSize + Frame#id3_frame.size + ?ID3_FRAME_HEADER_SIZE
-                            }
+                        padding -> update_frames_add_padding(UpdTag2, UpdTag2#id3_tag.frames);
+                        _ -> update_frames_add_frame(UpdTag2, UpdTag2#id3_tag.frames, Frame)
                     end,
                     UpdTag3 = UpdTag2#id3_tag{frames = NewFrames},
                     loop({Stream, UpdTag3})
@@ -133,6 +118,8 @@ loop({Stream, Tag}) ->
     loop({Stream, Tag}).
 
 
+%%%%%%%%
+%% Functions for update tag
 update_tag_fill_header(Tag, Stream) ->
     case Tag#id3_tag.header of
         undefined ->
@@ -151,6 +138,27 @@ update_tag_fill_ext_header(Tag, Stream) ->
             Tag#id3_tag{ext_header = ExtHeader};
         _ -> Tag
     end.
+
+%%%%%%%%
+%% Functions for update frame list
+update_frames_add_padding(Tag, Frames) ->
+    PaddingSize = Tag#id3_tag.header#id3_header.size
+        - Frames#id3_frames.size
+        - get_ext_header_size(Tag#id3_tag.ext_header),
+    NewFrames = Frames#id3_frames{
+            list = [{padding, PaddingSize} | Frames#id3_frames.list],
+            size = Frames#id3_frames.size + PaddingSize
+    },
+    update_frames_state(Tag, NewFrames).
+
+update_frames_add_frame(Tag, Frames, Frame) ->
+    NewSize = Frames#id3_frames.size + Frame#id3_frame.size + ?ID3_FRAME_HEADER_SIZE,
+    NewFrames = Frames#id3_frames{
+            list = [Frame | Frames#id3_frames.list],
+            size = NewSize
+    },
+    update_frames_state(Tag, NewFrames).
+
 
 update_frames_state(Tag, NewFrames) ->
     FramesSize = Tag#id3_tag.header#id3_header.size - get_ext_header_size(Tag#id3_tag.ext_header),
@@ -173,15 +181,9 @@ find_frame_in_stream(Stream, Tag, Frames, Id) ->
     Frame = read_frame(Stream),
     case Frame of
         padding ->
-            PaddingSize = Tag#id3_tag.header#id3_header.size - Frames#id3_frames.size - get_ext_header_size(Tag#id3_tag.ext_header),
-            NewFrameList = [{padding,PaddingSize}|Frames#id3_frames.list],
-            NewFrames = Frames#id3_frames{list = NewFrameList, size = Frames#id3_frames.size + PaddingSize},
-            {error, {not_found, NewFrames}};
+            {error, {not_found, update_frames_add_padding(Tag, Frames)}};
         _ ->
-            FrameSize = Frame#id3_frame.size + ?ID3_FRAME_HEADER_SIZE,
-            NewSize = Frames#id3_frames.size + FrameSize,
-            NewFrameList = [Frame|Frames#id3_frames.list],
-            NewFrames = Frames#id3_frames{list = NewFrameList, size = NewSize},
+            NewFrames = update_frames_add_frame(Tag, Frames, Frame),
             case Frame#id3_frame.id of
                 Id -> {ok, {Frame, NewFrames}};
                 _ ->
