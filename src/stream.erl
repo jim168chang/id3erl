@@ -18,4 +18,4 @@ create_by_file(FileName) ->
     Pid = spawn(fun() -> loop(File) end),
     {ok, Pid}.
 
-read(Id, Length) -> misc:call(Id, {read, Length}, ?TIMEOUT).
+read(Id, Length) -> id3v2_misc:call(Id, {read, Length}, ?TIMEOUT).

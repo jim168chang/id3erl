@@ -49,11 +49,11 @@ read_header(File) ->
                     #id3_header{
                             version=#id3_header_version{major=?MAJOR_VERSION,revision=?REVISION},
                             flags=#id3_header_flags{
-                                    unsinc=int_to_bool(Unsync),
-                                    ext_header =int_to_bool(Ext),
-                                    experiment =int_to_bool(Exp),
-                                    footer=int_to_bool(Footer)},
-                            size=read_syncsafe_int(SyncsafeSize)
+                                    unsinc= id3v2_misc:int_to_bool(Unsync),
+                                    ext_header = id3v2_misc:int_to_bool(Ext),
+                                    experiment = id3v2_misc:int_to_bool(Exp),
+                                    footer= id3v2_misc:int_to_bool(Footer)},
+                            size= id3v2_misc:read_syncsafe_int(SyncsafeSize)
                     }
             end
     end.
@@ -65,13 +65,13 @@ read_ext_header(File) ->
         {ok, <<SyncsafeSize:32,32#01:8,BinFlags/binary>>} ->
             {Update,CRC,Rests} = case BinFlags of
                 <<2#0:1,_Update:1,_CRC:1,_Rests:1,2#0000:4>> ->
-                    {int_to_bool(_Update),int_to_bool(_CRC),int_to_bool(_Rests)}
+                    {id3v2_misc:int_to_bool(_Update), id3v2_misc:int_to_bool(_CRC), id3v2_misc:int_to_bool(_Rests)}
             end,
             UpdateFlag = read_ext_header_flag(File, update, Update),
             CRCFlag = read_ext_header_flag(File, crc, CRC),
             RestsFlag = read_ext_header_flag(File, rests, Rests),
             #id3_ext_header{
-                size = read_syncsafe_int(SyncsafeSize),
+                size = id3v2_misc:read_syncsafe_int(SyncsafeSize),
                 flags = [UpdateFlag,CRCFlag,RestsFlag]
             }
     end.
@@ -104,7 +104,7 @@ read_frames1(File, RestFramesSize, FrameList) ->
 
 read_frame(File) ->
     {ok, <<BinId:4/binary,SyncsafeSize:32,Flags:2/binary>>} = file:read(File, 10),
-    Size = read_syncsafe_int(SyncsafeSize),
+    Size = id3v2_misc:read_syncsafe_int(SyncsafeSize),
     case Size of
         0 -> padding;
         _ ->
@@ -141,10 +141,10 @@ read_footer(File) ->
                     #id3_footer{
                             version=#id3_footer_version{major=?MAJOR_VERSION,revision=?REVISION},
                             flags=#id3_footer_flags{
-                                    unsinc=int_to_bool(Unsync),
-                                    ext_header =int_to_bool(Ext),
-                                    experiment =int_to_bool(Exp),
-                                    footer=int_to_bool(Footer)},
+                                    unsinc= id3v2_misc:int_to_bool(Unsync),
+                                    ext_header = id3v2_misc:int_to_bool(Ext),
+                                    experiment = id3v2_misc:int_to_bool(Exp),
+                                    footer= id3v2_misc:int_to_bool(Footer)},
                             size=Size
                     }
             end
@@ -154,10 +154,3 @@ read_footer(File) ->
 %%
 %% Common routine
 
-%% Convert syncsafe integer to real integer
-read_syncsafe_int(<<0:1,ForthByte:7, 0:1, ThirdByte:7, 0:1, SecondByte:7, 0:1,FirstByte:7>>) ->
-    <<Int:32>> = <<0:4,ForthByte:7,ThirdByte:7,SecondByte:7,FirstByte:7>>, Int;
-read_syncsafe_int(Int) -> read_syncsafe_int(<<Int:32>>).
-
-%% Convert number to boolean atom
-int_to_bool(1) -> true; int_to_bool(_) -> false.

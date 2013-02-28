@@ -178,7 +178,6 @@ find_readed([Frame = #id3_frame{id=Id}|_], Id) -> {ok, Frame};
 find_readed([_|Rest], Id) -> find_readed(Rest, Id).
 
 %% Read frames from stream, until found needed frame
-%% find_frame_in_stream(Stream, Tag, undefined, Id) -> find_frame_in_stream(Stream, Tag, #id3_frames{}, Id);
 find_frame_in_stream(Stream, Tag, Id) ->
     Frame = read_frame(Stream),
     case Frame of
@@ -188,8 +187,7 @@ find_frame_in_stream(Stream, Tag, Id) ->
             NewTag = update_tag_add_frame(Tag, Frame),
             case Frame#id3_frame.id of
                 Id -> {ok, {Frame, NewTag}};
-                _ ->
-                    find_frame_in_stream(Stream, NewTag, Id)
+                _ -> find_frame_in_stream(Stream, NewTag, Id)
             end
     end.
 
@@ -208,11 +206,11 @@ read_header(Stream) ->
                     #id3_header{
                             version = #id3_header_version{major = ?MAJOR_VERSION, revision = ?REVISION},
                             flags = #id3_header_flags{
-                                    unsinc = int_to_bool(Unsync),
-                                    ext_header = int_to_bool(Ext),
-                                    experiment = int_to_bool(Exp),
-                                    footer = int_to_bool(Footer)},
-                            size = read_syncsafe_int(SyncsafeSize)
+                                    unsinc = id3v2_misc:int_to_bool(Unsync),
+                                    ext_header = id3v2_misc:int_to_bool(Ext),
+                                    experiment = id3v2_misc:int_to_bool(Exp),
+                                    footer = id3v2_misc:int_to_bool(Footer)},
+                            size = id3v2_misc:read_syncsafe_int(SyncsafeSize)
                     }
             end
     end.
@@ -222,13 +220,13 @@ read_ext_header(Stream) ->
         {ok, <<SyncsafeSize:32,32#01:8,BinFlags/binary>>} ->
             {Update,CRC,Rests} = case BinFlags of
                 <<2#0:1,_Update:1,_CRC:1,_Rests:1,2#0000:4>> ->
-                    {int_to_bool(_Update),int_to_bool(_CRC),int_to_bool(_Rests)}
+                    {id3v2_misc:int_to_bool(_Update), id3v2_misc:int_to_bool(_CRC), id3v2_misc:int_to_bool(_Rests)}
             end,
             UpdateFlag = read_ext_header_flag(Stream, update, Update),
             CRCFlag = read_ext_header_flag(Stream, crc, CRC),
             RestsFlag = read_ext_header_flag(Stream, rests, Rests),
             #id3_ext_header{
-                    size = read_syncsafe_int(SyncsafeSize),
+                    size = id3v2_misc:read_syncsafe_int(SyncsafeSize),
                     flags = [UpdateFlag,CRCFlag,RestsFlag]
             }
     end.
@@ -242,7 +240,7 @@ read_ext_header_flag(_File, Name, _False) -> #id3_ext_header_flag{name = Name, v
 
 read_frame(Stream) ->
     {ok, <<BinId:4/binary,SyncsafeSize:32,Flags:2/binary>>} = stream:read(Stream, 10),
-    Size = read_syncsafe_int(SyncsafeSize),
+    Size = id3v2_misc:read_syncsafe_int(SyncsafeSize),
     case Size of
         0 -> padding;
         _ ->
@@ -264,19 +262,8 @@ read_frame_data(Stream, Size) ->
 
 %%%%%%%%
 %% API
-get_header(Srv) -> misc:call(Srv, {get_header}, ?TIMEOUT).
-get_frame(Srv, Id) -> misc:call(Srv, {get_frame, Id}, ?TIMEOUT).
-get_tag(Srv) -> misc:call(Srv, {get_tag}, ?TIMEOUT).
-read_next_frame(Srv) -> misc:call(Srv, {read_next_frame}, ?TIMEOUT).
-stop(Srv) -> misc:cast(Srv, {stop}).
-
-%%
-%% Common routine
-
-%% Convert syncsafe integer to real integer
-read_syncsafe_int(<<0:1, ForthByte:7, 0:1, ThirdByte:7, 0:1, SecondByte:7, 0:1, FirstByte:7>>) ->
-    <<Int:32>> = <<0:4, ForthByte:7, ThirdByte:7, SecondByte:7, FirstByte:7>>, Int;
-read_syncsafe_int(Int) -> read_syncsafe_int(<<Int:32>>).
-
-%% Convert number to boolean atom
-int_to_bool(1) -> true; int_to_bool(_) -> false.
+get_header(Srv) -> id3v2_misc:call(Srv, {get_header}, ?TIMEOUT).
+get_frame(Srv, Id) -> id3v2_misc:call(Srv, {get_frame, Id}, ?TIMEOUT).
+get_tag(Srv) -> id3v2_misc:call(Srv, {get_tag}, ?TIMEOUT).
+read_next_frame(Srv) -> id3v2_misc:call(Srv, {read_next_frame}, ?TIMEOUT).
+stop(Srv) -> id3v2_misc:cast(Srv, {stop}).
