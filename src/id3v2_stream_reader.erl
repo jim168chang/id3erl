@@ -11,7 +11,7 @@
 -define(ID3_HEADER_SIZE, 10).
 
 %% API
--export([test/1, start/1, get_header/1, get_frame/2, stop/1]).
+-export([test/1, start/1, get_header/1, get_frame/2, stop/1, get_tag/1]).
 
 test(FileName) ->
     io:format("Start~n", []),
@@ -19,12 +19,14 @@ test(FileName) ->
     io:format("Stream~n", []),
     Srv = start(Stream),
     io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
-    io:format("Get frame TPE1: ~p~n", [get_frame(Srv, "TPE1")]),
+     io:format("Get frame TPE1: ~p~n", [get_frame(Srv, "TPE1")]),
     io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
     io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
+    io:format("Get frame AAAA: ~p~n", [get_frame(Srv, "AAAA")]),
     io:format("Get frame TIT2: ~p~n", [get_frame(Srv, "TIT2")]),
     io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
     io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
+    io:format("Tag: ~p~n", [get_tag(Srv)]),
     stop(Srv)
 .
 
@@ -50,7 +52,7 @@ loop({Stream, Tag}) ->
             UpdTag = update_tag_fill_header(Tag, Stream), %% Make sure, that all previous information is readed
             UpdTag2 = update_tag_fill_ext_header(UpdTag, Stream),
             case UpdTag2#id3_tag.frames#id3_frames.state of
-                done -> case find_readed(UpdTag2#id3_tag.frames#id3_frames.list, Id) of
+                full -> case find_readed(UpdTag2#id3_tag.frames#id3_frames.list, Id) of
                     {ok, Frame} ->
                         From ! {self(), Frame},
                         loop({Stream, UpdTag2});
@@ -64,7 +66,7 @@ loop({Stream, Tag}) ->
                             From ! {self(), Frame},
                             loop({Stream, UpdTag2});
                         _ ->
-                            case find_frame_in_stream(Stream, Tag#id3_tag.frames, Id) of
+                            case find_frame_in_stream(Stream, UpdTag2, UpdTag2#id3_tag.frames, Id) of
                                 {ok, {Frame, NewFrames}} ->
                                     From ! {self(), Frame},
                                     UpdTag3 = UpdTag2#id3_tag{frames = update_frames_state(UpdTag2, NewFrames)},
@@ -81,16 +83,28 @@ loop({Stream, Tag}) ->
             UpdTag = update_tag_fill_header(Tag, Stream), %% Make sure, that all previous information is readed
             UpdTag2 = update_tag_fill_ext_header(UpdTag, Stream),
             case UpdTag2#id3_tag.frames#id3_frames.state of
-                done ->
+                full ->
                     From ! {self(), {error, not_found}},
                     loop({Stream, UpdTag2});
                 partly ->
                     Frame = read_frame(Stream),
                     From ! {self(), Frame},
                     FrameList = UpdTag2#id3_tag.frames#id3_frames.list,
+                    FramesSize = UpdTag2#id3_tag.frames#id3_frames.size,
                     NewFrames = case Frame of
-                        padding -> UpdTag2#id3_tag.frames;
-                        _ -> UpdTag2#id3_tag.frames#id3_frames{list = [Frame|FrameList]}
+                        padding ->
+                            PaddingSize = UpdTag2#id3_tag.header#id3_header.size
+                                - FramesSize
+                                - get_ext_header_size(UpdTag2#id3_tag.ext_header),
+                            UpdTag2#id3_tag.frames#id3_frames{
+                                list = lists:reverse([{padding,PaddingSize} | FrameList]),
+                                state = full,
+                                size = FramesSize + PaddingSize
+                            };
+                        _ -> UpdTag2#id3_tag.frames#id3_frames{
+                                list = [Frame|FrameList],
+                                size = FramesSize + Frame#id3_frame.size + ?ID3_FRAME_HEADER_SIZE
+                            }
                     end,
                     UpdTag3 = UpdTag2#id3_tag{frames = NewFrames},
                     loop({Stream, UpdTag3})
@@ -98,8 +112,12 @@ loop({Stream, Tag}) ->
 
 
         {_From, {get_footer}} ->
-             %% todo: implement
-             not_implemented;
+            %% todo: implement
+            not_implemented;
+
+        {From, {get_tag}} ->
+            From ! {self(), Tag},
+            loop({Stream, Tag});
 
         {_From, {stop}} ->
             io:format("Bye!~n");
@@ -137,9 +155,8 @@ update_tag_fill_ext_header(Tag, Stream) ->
 update_frames_state(Tag, NewFrames) ->
     FramesSize = Tag#id3_tag.header#id3_header.size - get_ext_header_size(Tag#id3_tag.ext_header),
     RestSize = FramesSize - NewFrames#id3_frames.size,
-    io:format("Rest size: ~p~n", [RestSize]),
     case RestSize of
-        Zero when Zero =< 0 -> NewFrames#id3_frames{state = done};
+        Zero when Zero =< 0 -> NewFrames#id3_frames{state = full, list = lists:reverse(NewFrames#id3_frames.list)};
         _ -> NewFrames
     end.
 
@@ -151,11 +168,15 @@ find_readed([Frame = #id3_frame{id=Id}|_], Id) -> {ok, Frame};
 find_readed([_|Rest], Id) -> find_readed(Rest, Id).
 
 %% Read frames from stream, until found needed frame
-find_frame_in_stream(Stream, undefined, Id) -> find_frame_in_stream(Stream, #id3_frames{}, Id);
-find_frame_in_stream(Stream, Frames, Id) ->
+find_frame_in_stream(Stream, Tag, undefined, Id) -> find_frame_in_stream(Stream, Tag, #id3_frames{}, Id);
+find_frame_in_stream(Stream, Tag, Frames, Id) ->
     Frame = read_frame(Stream),
     case Frame of
-        padding -> {error, {not_found, Frames}};
+        padding ->
+            PaddingSize = Tag#id3_tag.header#id3_header.size - Frames#id3_frames.size - get_ext_header_size(Tag#id3_tag.ext_header),
+            NewFrameList = [{padding,PaddingSize}|Frames#id3_frames.list],
+            NewFrames = Frames#id3_frames{list = NewFrameList, size = Frames#id3_frames.size + PaddingSize},
+            {error, {not_found, NewFrames}};
         _ ->
             FrameSize = Frame#id3_frame.size + ?ID3_FRAME_HEADER_SIZE,
             NewSize = Frames#id3_frames.size + FrameSize,
@@ -164,7 +185,7 @@ find_frame_in_stream(Stream, Frames, Id) ->
             case Frame#id3_frame.id of
                 Id -> {ok, {Frame, NewFrames}};
                 _ ->
-                    find_frame_in_stream(Stream, NewFrames, Id)
+                    find_frame_in_stream(Stream, Tag, NewFrames, Id)
             end
     end.
 
@@ -242,6 +263,7 @@ read_frame_data(Stream, Size) ->
 %% API
 get_header(Srv) -> misc:call(Srv, {get_header}, ?TIMEOUT).
 get_frame(Srv, Id) -> misc:call(Srv, {get_frame, Id}, ?TIMEOUT).
+get_tag(Srv) -> misc:call(Srv, {get_tag}, ?TIMEOUT).
 read_next_frame(Srv) -> misc:call(Srv, {read_next_frame}, ?TIMEOUT).
 stop(Srv) -> misc:cast(Srv, {stop}).
 

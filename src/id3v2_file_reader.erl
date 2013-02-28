@@ -5,8 +5,14 @@
 %% API
 -export([read_file/1]).
 -include("../include/id3v2.hrl").
+
 -define(MAJOR_VERSION,32#04).
 -define(REVISION,32#00).
+
+-define(ID3_FRAME_HEADER_SIZE, 10).
+-define(ID3_EXT_HEADER_SIZE, 6).
+-define(ID3_HEADER_SIZE, 10).
+
 
 read_file(FileName) ->
     {ok, File} = file:open(FileName, [read,binary]),
@@ -85,15 +91,15 @@ get_ext_header_size(ExtHeader) -> ExtHeader#id3_ext_header.size + 6.
 
 read_frames(File, FramesSize) -> read_frames1(File,FramesSize,[]).
 
-read_frames1(_File, SubZero, Frames) when SubZero < 0 -> lists:reverse(Frames);
-read_frames1(_File, 0, Frames) -> lists:reverse(Frames);
-read_frames1(File, FramesSize, Frames) ->
+read_frames1(_File, SubZero, FrameList) when SubZero < 0 -> read_frames1(_File, 0, FrameList);
+read_frames1(_File, 0, FrameList) -> #id3_frames{state = full, size = calculate_frame_size(FrameList,0), list = lists:reverse(FrameList)};
+read_frames1(File, RestFramesSize, FrameList) ->
     Frame = read_frame(File),
     case Frame of
-        padding -> read_frames1(File, 0, [padding|Frames]);
+        padding -> read_frames1(File, 0, [{padding,RestFramesSize}|FrameList]);
         _ ->
             Size = Frame#id3_frame.size + 10,
-            read_frames1(File, FramesSize - Size, [Frame|Frames])
+            read_frames1(File, RestFramesSize - Size, [Frame|FrameList])
     end.
 
 read_frame(File) ->
@@ -116,6 +122,13 @@ read_frame(File) ->
 
 read_frame_data(File, Size) ->
     {ok, Data} = file:read(File, Size), Data.
+
+calculate_frame_size([], Size) -> Size;
+calculate_frame_size([{padding, PaddingSize}|Rest], Size) -> calculate_frame_size(Rest, Size + PaddingSize);
+calculate_frame_size([Frame|Rest], Size) ->
+    NewSize = Size + Frame#id3_frame.size + ?ID3_FRAME_HEADER_SIZE,
+    calculate_frame_size(Rest, NewSize).
+
 
 
 %%%%%%%%

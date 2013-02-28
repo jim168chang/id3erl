@@ -6,9 +6,6 @@ BUILD_DIR=$(ROOT)/$(FULL_APP_NAME)
 
 all: build
 
-test:
-	pwd
-
 clean:
 	rm -rf $(BUILD_DIR)
 	rm -rf *.dump
@@ -27,7 +24,8 @@ install: build
 	rm -rf ~/.erlang_libs/$(APP_NAME)-*
 	cp -r $(BUILD_DIR) ~/.erlang_libs/
 
-run: install
-	erl -eval 'Info = id3v2_file_reader:read_file("/home/koluch/audio/music/mp3//Sound Dimension/Sound Dimension - Mojo Rocksteady Beat (2008)/08 - In Cold Blood.mp3"), io:format("Info: ~p~n", [Info])' -s init stop -noshell
+test:
+#	erl -eval 'io:format("Tag for file '1.mp3': ~p~n", [id3v2_file_reader:read_file("1.mp3")])' -s init stop -noshell
+	erl -eval 'id3v2_stream_reader:test("1.mp3")' -s init stop -noshell
 
 
