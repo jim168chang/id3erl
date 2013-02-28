@@ -18,8 +18,7 @@ build: clean
 	mkdir $(BUILD_DIR)
 	mkdir $(BUILD_DIR)/ebin
 	erlc -o $(BUILD_DIR)/ebin $(ROOT)/src/*.erl
-	erlc generate_app_file.erl
-	erl -eval 'generate_app_file:generate([{id, $(APP_NAME)},{vsn,"$(VERSION)"}])' -s init stop -noshell
+	./generate_app_file.esh $(APP_NAME) $(VERSION)
 	cp -r $(ROOT)/include $(BUILD_DIR)
 	mv $(APP_NAME).app $(BUILD_DIR)/ebin
 

@@ -1,17 +1,24 @@
+#!/usr/bin/env escript
+
 %% Copyright
--module(generate_app_file).
 -author("Nikolay Mavrenkov (koluch@koluch.ru)").
 
 %% API
 -export([generate/1]).
 
+main(Args) ->
+    io:format("Args: ~p~n", [Args]),
+    generate([{id, lists:nth(1, Args)},{vsn,lists:nth(2, Args)}]).
+%%     Settings = [{id, $(APP_NAME)},{vsn,"$(VERSION)"}].
+
 generate(Settings) ->
     Id = get_value(id,Settings),
-    SourceFileName = atom_to_list(Id) ++ ".app.src",
+    SourceFileName = Id ++ ".app.src",
     {ok, [FileContent]} = file:consult(SourceFileName),
-    {application, Id, Values} = FileContent,
+    IdAtom = list_to_atom(Id),
+    {application, IdAtom, Values} = FileContent,
     App = {application, Id, create_full_settings(Values,Settings)},
-    AppFileName = atom_to_list(Id) ++ ".app",
+    AppFileName = Id ++ ".app",
     unconsult(AppFileName, [App]).
 
 
