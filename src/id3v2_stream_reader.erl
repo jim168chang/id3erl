@@ -11,14 +11,14 @@
 -define(ID3_HEADER_SIZE, 10).
 
 %% API
--export([test/1, start/1, get_header/1, get_footer/1, get_frame/2, get_tag/1, stop/1]).
+-export([test/1, start/1, get_header/1, get_footer/1, get_frame/2, get_tag/1, stop/1, get_next_frame/1]).
 
 test(FileName) ->
     io:format("Start~n", []),
     {ok, Stream} = stream:create_by_file(FileName),
     io:format("Stream~n", []),
     Srv = start(Stream),
-%%     io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
+    io:format("Next frame: ~p~n", [get_next_frame(Srv)]),
 %%      io:format("Get frame TPE1: ~p~n", [get_frame(Srv, "TPE1")]),
 %%     io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
 %%     io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
@@ -102,8 +102,9 @@ loop({Stream, Tag}) ->
             case UpdTag#id3_tag.header#id3_header.flags#id3_header_flags.footer of
                 true ->
                     UpdTag3 = sure_tag_fill_frames(UpdTag2, Stream),
-                    From ! {self(), not_implemented},
-                    loop({Stream, UpdTag3});
+                    UpdTag4 = sure_tag_fill_footer(UpdTag3, Stream),
+                    From ! {self(), UpdTag4#id3_tag.footer},
+                    loop({Stream, UpdTag4});
                 _ ->
                     From ! {self(), not_present},
                     loop({Stream, UpdTag})
@@ -157,6 +158,17 @@ sure_tag_fill_frames(Tag, Stream) ->
                 padding -> sure_tag_fill_frames(tag_add_padding(Tag), Stream);
                 _ -> sure_tag_fill_frames(tag_add_frame(Tag, Frame), Stream)
             end
+    end.
+
+sure_tag_fill_footer(Tag, Stream) ->
+    case Tag#id3_tag.footer of
+        undefined ->
+            Footer = case Tag#id3_tag.header#id3_header.flags#id3_header_flags.footer of
+                true -> read_footer(Stream);
+                _ -> not_present
+            end,
+            Tag#id3_tag{footer = Footer};
+        _ -> Tag
     end.
 
 tag_add_padding(Tag) ->
@@ -252,9 +264,27 @@ read_ext_header(Stream) ->
             }
     end.
 
+read_footer(Stream) ->
+    case stream:read(Stream,10) of
+        {ok, <<"3DI",?MAJOR_VERSION:8 ,?REVISION:8,Flags:1/binary,Size:32>>} ->
+            case Flags of
+                <<Unsync:1,Ext:1,Exp:1,Footer:1,2#0000:4>> ->
+                    #id3_footer{
+                            version=#id3_footer_version{major=?MAJOR_VERSION,revision=?REVISION},
+                            flags=#id3_footer_flags{
+                                    unsinc= id3v2_misc:int_to_bool(Unsync),
+                                    ext_header = id3v2_misc:int_to_bool(Ext),
+                                    experiment = id3v2_misc:int_to_bool(Exp),
+                                    footer= id3v2_misc:int_to_bool(Footer)},
+                            size=Size
+                    }
+            end
+    end.
+
+
 read_ext_header_flag(File, Name, true) ->
-    {ok, <<FlagLength>>} = file:read(File, 1),
-    {ok, FlagData} = file:read(File, FlagLength),
+    {ok, <<FlagLength>>} = stream:read(File, 1),
+    {ok, FlagData} = stream:read(File, FlagLength),
     #id3_ext_header_flag{name = Name, value = true, data = FlagData};
 read_ext_header_flag(_File, Name, _False) -> #id3_ext_header_flag{name = Name, value = false}.
 

@@ -6,6 +6,8 @@
 -export([create_by_file/1, read/2]).
 -define(TIMEOUT, 3000).
 
+%% todo: move to another application
+
 loop(File) ->
     receive
         {From, {read, Length}} ->
