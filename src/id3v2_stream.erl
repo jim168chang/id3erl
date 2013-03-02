@@ -1,5 +1,5 @@
 %% Copyright
--module(stream).
+-module(id3v2_stream).
 -author("Nikolay Mavrenkov (koluch@koluch.ru)").
 
 %% API

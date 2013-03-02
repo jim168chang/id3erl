@@ -15,9 +15,9 @@
 
 test(FileName) ->
     io:format("Start~n", []),
-    {ok, Stream} = stream:create_by_file(FileName),
+    {ok, Stream} = id3v2_stream:create_by_file(FileName),
     io:format("Stream~n", []),
-    Srv = start(Stream),
+    {ok, Srv} = start(Stream),
     io:format("Next frame: ~p~n", [get_next_frame(Srv)]),
 %%      io:format("Get frame TPE1: ~p~n", [get_frame(Srv, "TPE1")]),
 %%     io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
@@ -33,7 +33,7 @@ test(FileName) ->
 
 
 
-start(Stream) -> spawn(fun() -> loop({Stream, #id3_tag{}}) end).
+start(Stream) -> {ok, spawn(fun() -> loop({Stream, #id3_tag{}}) end)}.
 
 loop({Stream, Tag}) ->
     receive
@@ -180,8 +180,8 @@ tag_add_padding(Tag) ->
             list = [{padding, PaddingSize} | Frames#id3_frames.list],
             size = Frames#id3_frames.size + PaddingSize
     },
-    NewFrames1 = check_frames_state(Tag, NewFrames),
-    Tag#id3_tag{frames = NewFrames1}.
+    NewTag = Tag#id3_tag{frames = NewFrames},
+    tag_check_frames_state(NewTag).
 
 tag_add_frame(Tag, Frame) ->
     Frames = Tag#id3_tag.frames,
@@ -190,18 +190,18 @@ tag_add_frame(Tag, Frame) ->
             list = [Frame | Frames#id3_frames.list],
             size = NewSize
     },
-    NewFrames1 = check_frames_state(Tag, NewFrames),
-    Tag#id3_tag{frames = NewFrames1}.
+    NewTag = Tag#id3_tag{frames = NewFrames},
+    tag_check_frames_state(NewTag).
 
-
-
-check_frames_state(Tag, NewFrames) ->
+tag_check_frames_state(Tag) ->
+    Frames = Tag#id3_tag.frames,
     FramesSize = Tag#id3_tag.header#id3_header.size - get_ext_header_size(Tag#id3_tag.ext_header),
-    RestSize = FramesSize - NewFrames#id3_frames.size,
-    case RestSize of
-        Zero when Zero =< 0 -> NewFrames#id3_frames{state = full, list = lists:reverse(NewFrames#id3_frames.list)};
-        _ -> NewFrames
-    end.
+    RestSize = FramesSize - Frames#id3_frames.size,
+    NewFrames = case RestSize of
+        Zero when Zero =< 0 -> Frames#id3_frames{state = full, list = lists:reverse(Frames#id3_frames.list)};
+        _ -> Frames
+    end,
+    Tag#id3_tag{frames = NewFrames}.
 
 
 %% Found tag within already readed
@@ -232,7 +232,7 @@ get_ext_header_size(ExtHeader) -> ExtHeader#id3_ext_header.size + 6.
 %%%%%%%%
 %% Read routine
 read_header(Stream) ->
-    case stream:read(Stream, ?ID3_HEADER_SIZE) of
+    case id3v2_stream:read(Stream, ?ID3_HEADER_SIZE) of
         {ok, <<"ID3", ?MAJOR_VERSION:8, ?REVISION:8, Flags:1/binary, SyncsafeSize:32>>} ->
             case Flags of
                 <<Unsync:1, Ext:1, Exp:1, Footer:1, 2#0000:4>> ->
@@ -249,7 +249,7 @@ read_header(Stream) ->
     end.
 
 read_ext_header(Stream) ->
-    case stream:read(Stream,?ID3_EXT_HEADER_SIZE) of
+    case id3v2_stream:read(Stream,?ID3_EXT_HEADER_SIZE) of
         {ok, <<SyncsafeSize:32,32#01:8,BinFlags/binary>>} ->
             {Update,CRC,Rests} = case BinFlags of
                 <<2#0:1,_Update:1,_CRC:1,_Rests:1,2#0000:4>> ->
@@ -265,7 +265,7 @@ read_ext_header(Stream) ->
     end.
 
 read_footer(Stream) ->
-    case stream:read(Stream,10) of
+    case id3v2_stream:read(Stream,10) of
         {ok, <<"3DI",?MAJOR_VERSION:8 ,?REVISION:8,Flags:1/binary,Size:32>>} ->
             case Flags of
                 <<Unsync:1,Ext:1,Exp:1,Footer:1,2#0000:4>> ->
@@ -283,14 +283,14 @@ read_footer(Stream) ->
 
 
 read_ext_header_flag(File, Name, true) ->
-    {ok, <<FlagLength>>} = stream:read(File, 1),
-    {ok, FlagData} = stream:read(File, FlagLength),
+    {ok, <<FlagLength>>} = id3v2_stream:read(File, 1),
+    {ok, FlagData} = id3v2_stream:read(File, FlagLength),
     #id3_ext_header_flag{name = Name, value = true, data = FlagData};
 read_ext_header_flag(_File, Name, _False) -> #id3_ext_header_flag{name = Name, value = false}.
 
 
 read_frame(Stream) ->
-    {ok, <<BinId:4/binary,SyncsafeSize:32,Flags:2/binary>>} = stream:read(Stream, 10),
+    {ok, <<BinId:4/binary,SyncsafeSize:32,Flags:2/binary>>} = id3v2_stream:read(Stream, 10),
     Size = id3v2_misc:read_syncsafe_int(SyncsafeSize),
     case Size of
         0 -> padding;
@@ -308,7 +308,7 @@ read_frame(Stream) ->
     end.
 
 read_frame_data(Stream, Size) ->
-    {ok, Data} = stream:read(Stream, Size), Data.
+    {ok, Data} = id3v2_stream:read(Stream, Size), Data.
 
 
 %%%%%%%%

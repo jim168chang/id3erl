@@ -9,7 +9,6 @@
 main(Args) ->
     io:format("Args: ~p~n", [Args]),
     generate([{id, lists:nth(1, Args)},{vsn,lists:nth(2, Args)}]).
-%%     Settings = [{id, $(APP_NAME)},{vsn,"$(VERSION)"}].
 
 generate(Settings) ->
     Id = get_value(id,Settings),
