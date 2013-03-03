@@ -11,29 +11,13 @@
 -define(ID3_HEADER_SIZE, 10).
 
 %% API
--export([test/1, start/1, get_header/1, get_footer/1, get_frame/2, get_tag/1, stop/1, get_next_frame/1]).
+-export([start/1, get_header/1, get_footer/1, get_frame/2, get_tag/1, stop/1, read_next_frame/1]).
 
-test(FileName) ->
-    io:format("Start~n", []),
-    {ok, Stream} = id3v2_stream:create_by_file(FileName),
-    io:format("Stream~n", []),
-    {ok, Srv} = start(Stream),
-    io:format("Next frame: ~p~n", [get_next_frame(Srv)]),
-%%      io:format("Get frame TPE1: ~p~n", [get_frame(Srv, "TPE1")]),
-%%     io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
-%%     io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
-%%     io:format("Get frame AAAA: ~p~n", [get_frame(Srv, "AAAA")]),
-%%     io:format("Get frame TIT2: ~p~n", [get_frame(Srv, "TIT2")]),
-%%     io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
-%%     io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
-    io:format("Footer: ~p~n", [get_footer(Srv)]),
-%%     io:format("Tag: ~p~n", [get_tag(Srv)]),
-    stop(Srv)
-.
+start(Stream) ->
+    io:format("begin!~n", []),
+    {ok, spawn(fun() -> loop({Stream, #id3_tag{}}) end)}.
 
 
-
-start(Stream) -> {ok, spawn(fun() -> loop({Stream, #id3_tag{}}) end)}.
 
 loop({Stream, Tag}) ->
     receive
@@ -78,7 +62,7 @@ loop({Stream, Tag}) ->
                     end
             end;
 
-        {From, {get_next_frame}} ->
+        {From, {read_next_frame}} ->
             UpdTag = sure_tag_fill_header(Tag, Stream), %% Make sure, that all previous information is readed
             UpdTag2 = sure_tag_fill_ext_header(UpdTag, Stream),
             case UpdTag2#id3_tag.frames#id3_frames.state of
@@ -232,6 +216,7 @@ get_ext_header_size(ExtHeader) -> ExtHeader#id3_ext_header.size + 6.
 %%%%%%%%
 %% Read routine
 read_header(Stream) ->
+    io:format("Here?~p~n", [Stream]),
     case id3v2_stream:read(Stream, ?ID3_HEADER_SIZE) of
         {ok, <<"ID3", ?MAJOR_VERSION:8, ?REVISION:8, Flags:1/binary, SyncsafeSize:32>>} ->
             case Flags of
@@ -317,5 +302,5 @@ get_header(Srv) -> id3v2_misc:call(Srv, {get_header}, ?TIMEOUT).
 get_footer(Srv) -> id3v2_misc:call(Srv, {get_footer}, ?TIMEOUT).
 get_frame(Srv, Id) -> id3v2_misc:call(Srv, {get_frame, Id}, ?TIMEOUT).
 get_tag(Srv) -> id3v2_misc:call(Srv, {get_tag}, ?TIMEOUT).
-get_next_frame(Srv) -> id3v2_misc:call(Srv, {get_next_frame}, ?TIMEOUT).
+read_next_frame(Srv) -> id3v2_misc:call(Srv, {read_next_frame}, ?TIMEOUT).
 stop(Srv) -> id3v2_misc:cast(Srv, {stop}).
