@@ -14,7 +14,6 @@
 -export([start/1, get_header/1, get_footer/1, get_frame/2, get_tag/1, stop/1, read_next_frame/1]).
 
 start(Stream) ->
-    io:format("begin!~n", []),
     {ok, spawn(fun() -> loop({Stream, #id3_tag{}}) end)}.
 
 
@@ -216,7 +215,6 @@ get_ext_header_size(ExtHeader) -> ExtHeader#id3_ext_header.size + 6.
 %%%%%%%%
 %% Read routine
 read_header(Stream) ->
-    io:format("Here?~p~n", [Stream]),
     case id3v2_stream:read(Stream, ?ID3_HEADER_SIZE) of
         {ok, <<"ID3", ?MAJOR_VERSION:8, ?REVISION:8, Flags:1/binary, SyncsafeSize:32>>} ->
             case Flags of
