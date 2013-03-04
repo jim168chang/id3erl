@@ -1,5 +1,5 @@
 %% Copyright
--module(id3v2_misc).
+-module(id3erl_misc).
 -author("Nikolay Mavrenkov (koluch@koluch.ru)").
 
 %% API

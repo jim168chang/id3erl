@@ -1,5 +1,5 @@
 %% Copyright
--module(id3v2).
+-module(id3erl).
 -author("Nikolay Mavrenkov (koluch@koluch.ru)").
 
 %% API
@@ -7,7 +7,7 @@
 
 test(FileName) ->
     io:format("Start~n", []),
-    {ok, Srv} = id3v2:file_stream(FileName),
+    {ok, Srv} = id3erl:file_stream(FileName),
     io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
      io:format("Get frame TPE1: ~p~n", [get_frame(Srv, "TPE1")]),
     io:format("Next frame: ~p~n", [read_next_frame(Srv)]),
@@ -23,16 +23,15 @@ test(FileName) ->
 
 
 %% Read full tag from file
-file_full(FileName) -> id3v2_file_reader:read_file(FileName).
+file_full(FileName) -> id3erl_file_reader:read_file(FileName).
 
 %% Start process for read file on demand
 file_stream(FileName) ->
 
     %% Start error handling intermediate process
     HandlingPid = spawn(fun() ->
-        {ok, FileStream} = id3v2_stream:create_by_file(FileName),
-        {ok, Srv} = id3v2_stream_reader:start(FileStream),
-        {ok, {id3v2_stream, Srv}},
+        {ok, FileStream} = id3erl_stream:create_by_file(FileName),
+        {ok, Srv} = id3erl_stream_reader:start(FileStream),
         handling_loop(Srv)
     end),
     {ok, {id3v2_stream, HandlingPid}}.
@@ -72,9 +71,9 @@ handling_loop(Pid) ->
             handling_loop(Pid)
     end.
 
-get_header({id3v2_stream, Srv}) -> id3v2_stream_reader:get_header(Srv).
-get_footer({id3v2_stream, Srv}) -> id3v2_stream_reader:get_footer(Srv).
-get_frame({id3v2_stream, Srv}, Id) -> id3v2_stream_reader:get_frame(Srv, Id).
-get_tag({id3v2_stream, Srv}) -> id3v2_stream_reader:get_tag(Srv).
-read_next_frame({id3v2_stream, Srv}) -> id3v2_stream_reader:read_next_frame(Srv).
-stop({id3v2_stream, Srv}) -> id3v2_stream_reader:stop(Srv).
+get_header({id3v2_stream, Srv}) -> id3erl_stream_reader:get_header(Srv).
+get_footer({id3v2_stream, Srv}) -> id3erl_stream_reader:get_footer(Srv).
+get_frame({id3v2_stream, Srv}, Id) -> id3erl_stream_reader:get_frame(Srv, Id).
+get_tag({id3v2_stream, Srv}) -> id3erl_stream_reader:get_tag(Srv).
+read_next_frame({id3v2_stream, Srv}) -> id3erl_stream_reader:read_next_frame(Srv).
+stop({id3v2_stream, Srv}) -> id3erl_stream_reader:stop(Srv).

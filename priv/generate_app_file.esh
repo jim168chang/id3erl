@@ -12,11 +12,11 @@ main(Args) ->
 
 generate(Settings) ->
     Id = get_value(id,Settings),
-    SourceFileName = Id ++ ".app.src",
+    SourceFileName = "app.src",
     {ok, [FileContent]} = file:consult(SourceFileName),
     IdAtom = list_to_atom(Id),
-    {application, IdAtom, Values} = FileContent,
-    App = {application, Id, create_full_settings(Values,Settings)},
+    {application, Values} = FileContent,
+    App = {application, IdAtom, create_full_settings(Values,Settings)},
     AppFileName = Id ++ ".app",
     unconsult(AppFileName, [App]).
 

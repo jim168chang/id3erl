@@ -1,5 +1,5 @@
 %% Copyright
--module(id3v2_file_reader).
+-module(id3erl_file_reader).
 -author("Nikolay Mavrenkov (koluch@koluch.ru)").
 
 %% API
@@ -49,11 +49,11 @@ read_header(File) ->
                     #id3_header{
                             version=#id3_header_version{major=?MAJOR_VERSION,revision=?REVISION},
                             flags=#id3_header_flags{
-                                    unsinc= id3v2_misc:int_to_bool(Unsync),
-                                    ext_header = id3v2_misc:int_to_bool(Ext),
-                                    experiment = id3v2_misc:int_to_bool(Exp),
-                                    footer= id3v2_misc:int_to_bool(Footer)},
-                            size= id3v2_misc:read_syncsafe_int(SyncsafeSize)
+                                    unsinc= id3erl_misc:int_to_bool(Unsync),
+                                    ext_header = id3erl_misc:int_to_bool(Ext),
+                                    experiment = id3erl_misc:int_to_bool(Exp),
+                                    footer= id3erl_misc:int_to_bool(Footer)},
+                            size= id3erl_misc:read_syncsafe_int(SyncsafeSize)
                     }
             end
     end.
@@ -65,13 +65,13 @@ read_ext_header(File) ->
         {ok, <<SyncsafeSize:32,32#01:8,BinFlags/binary>>} ->
             {Update,CRC,Rests} = case BinFlags of
                 <<2#0:1,_Update:1,_CRC:1,_Rests:1,2#0000:4>> ->
-                    {id3v2_misc:int_to_bool(_Update), id3v2_misc:int_to_bool(_CRC), id3v2_misc:int_to_bool(_Rests)}
+                    {id3erl_misc:int_to_bool(_Update), id3erl_misc:int_to_bool(_CRC), id3erl_misc:int_to_bool(_Rests)}
             end,
             UpdateFlag = read_ext_header_flag(File, update, Update),
             CRCFlag = read_ext_header_flag(File, crc, CRC),
             RestsFlag = read_ext_header_flag(File, rests, Rests),
             #id3_ext_header{
-                size = id3v2_misc:read_syncsafe_int(SyncsafeSize),
+                size = id3erl_misc:read_syncsafe_int(SyncsafeSize),
                 flags = [UpdateFlag,CRCFlag,RestsFlag]
             }
     end.
@@ -104,13 +104,13 @@ read_frames1(File, RestFramesSize, FrameList) ->
 
 read_frame(File) ->
     {ok, <<BinId:4/binary,SyncsafeSize:32,Flags:2/binary>>} = file:read(File, 10),
-    Size = id3v2_misc:read_syncsafe_int(SyncsafeSize),
+    Size = id3erl_misc:read_syncsafe_int(SyncsafeSize),
     case Size of
         0 -> padding;
         _ ->
             Id = binary_to_list(BinId),
             RawData = read_frame_data(File, Size),
-            ParsedData = id3v2_native_frames:parse(Id, RawData),
+            ParsedData = id3erl_native_frames:parse(Id, RawData),
             #id3_frame{
                 id = Id,
                 size = Size,
@@ -141,10 +141,10 @@ read_footer(File) ->
                     #id3_footer{
                             version=#id3_footer_version{major=?MAJOR_VERSION,revision=?REVISION},
                             flags=#id3_footer_flags{
-                                    unsinc= id3v2_misc:int_to_bool(Unsync),
-                                    ext_header = id3v2_misc:int_to_bool(Ext),
-                                    experiment = id3v2_misc:int_to_bool(Exp),
-                                    footer= id3v2_misc:int_to_bool(Footer)},
+                                    unsinc= id3erl_misc:int_to_bool(Unsync),
+                                    ext_header = id3erl_misc:int_to_bool(Ext),
+                                    experiment = id3erl_misc:int_to_bool(Exp),
+                                    footer= id3erl_misc:int_to_bool(Footer)},
                             size=Size
                     }
             end

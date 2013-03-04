@@ -1,5 +1,5 @@
 %% Copyright
--module(id3v2_stream_reader).
+-module(id3erl_stream_reader).
 -author("Nikolay Mavrenkov (koluch@koluch.ru)").
 -include("../include/id3v2.hrl").
 -define(MAJOR_VERSION, 32#04).
@@ -215,50 +215,50 @@ get_ext_header_size(ExtHeader) -> ExtHeader#id3_ext_header.size + 6.
 %%%%%%%%
 %% Read routine
 read_header(Stream) ->
-    case id3v2_stream:read(Stream, ?ID3_HEADER_SIZE) of
+    case id3erl_stream:read(Stream, ?ID3_HEADER_SIZE) of
         {ok, <<"ID3", ?MAJOR_VERSION:8, ?REVISION:8, Flags:1/binary, SyncsafeSize:32>>} ->
             case Flags of
                 <<Unsync:1, Ext:1, Exp:1, Footer:1, 2#0000:4>> ->
                     #id3_header{
                             version = #id3_header_version{major = ?MAJOR_VERSION, revision = ?REVISION},
                             flags = #id3_header_flags{
-                                    unsinc = id3v2_misc:int_to_bool(Unsync),
-                                    ext_header = id3v2_misc:int_to_bool(Ext),
-                                    experiment = id3v2_misc:int_to_bool(Exp),
-                                    footer = id3v2_misc:int_to_bool(Footer)},
-                            size = id3v2_misc:read_syncsafe_int(SyncsafeSize)
+                                    unsinc = id3erl_misc:int_to_bool(Unsync),
+                                    ext_header = id3erl_misc:int_to_bool(Ext),
+                                    experiment = id3erl_misc:int_to_bool(Exp),
+                                    footer = id3erl_misc:int_to_bool(Footer)},
+                            size = id3erl_misc:read_syncsafe_int(SyncsafeSize)
                     }
             end
     end.
 
 read_ext_header(Stream) ->
-    case id3v2_stream:read(Stream,?ID3_EXT_HEADER_SIZE) of
+    case id3erl_stream:read(Stream,?ID3_EXT_HEADER_SIZE) of
         {ok, <<SyncsafeSize:32,32#01:8,BinFlags/binary>>} ->
             {Update,CRC,Rests} = case BinFlags of
                 <<2#0:1,_Update:1,_CRC:1,_Rests:1,2#0000:4>> ->
-                    {id3v2_misc:int_to_bool(_Update), id3v2_misc:int_to_bool(_CRC), id3v2_misc:int_to_bool(_Rests)}
+                    {id3erl_misc:int_to_bool(_Update), id3erl_misc:int_to_bool(_CRC), id3erl_misc:int_to_bool(_Rests)}
             end,
             UpdateFlag = read_ext_header_flag(Stream, update, Update),
             CRCFlag = read_ext_header_flag(Stream, crc, CRC),
             RestsFlag = read_ext_header_flag(Stream, rests, Rests),
             #id3_ext_header{
-                    size = id3v2_misc:read_syncsafe_int(SyncsafeSize),
+                    size = id3erl_misc:read_syncsafe_int(SyncsafeSize),
                     flags = [UpdateFlag,CRCFlag,RestsFlag]
             }
     end.
 
 read_footer(Stream) ->
-    case id3v2_stream:read(Stream,10) of
+    case id3erl_stream:read(Stream,10) of
         {ok, <<"3DI",?MAJOR_VERSION:8 ,?REVISION:8,Flags:1/binary,Size:32>>} ->
             case Flags of
                 <<Unsync:1,Ext:1,Exp:1,Footer:1,2#0000:4>> ->
                     #id3_footer{
                             version=#id3_footer_version{major=?MAJOR_VERSION,revision=?REVISION},
                             flags=#id3_footer_flags{
-                                    unsinc= id3v2_misc:int_to_bool(Unsync),
-                                    ext_header = id3v2_misc:int_to_bool(Ext),
-                                    experiment = id3v2_misc:int_to_bool(Exp),
-                                    footer= id3v2_misc:int_to_bool(Footer)},
+                                    unsinc= id3erl_misc:int_to_bool(Unsync),
+                                    ext_header = id3erl_misc:int_to_bool(Ext),
+                                    experiment = id3erl_misc:int_to_bool(Exp),
+                                    footer= id3erl_misc:int_to_bool(Footer)},
                             size=Size
                     }
             end
@@ -266,21 +266,21 @@ read_footer(Stream) ->
 
 
 read_ext_header_flag(File, Name, true) ->
-    {ok, <<FlagLength>>} = id3v2_stream:read(File, 1),
-    {ok, FlagData} = id3v2_stream:read(File, FlagLength),
+    {ok, <<FlagLength>>} = id3erl_stream:read(File, 1),
+    {ok, FlagData} = id3erl_stream:read(File, FlagLength),
     #id3_ext_header_flag{name = Name, value = true, data = FlagData};
 read_ext_header_flag(_File, Name, _False) -> #id3_ext_header_flag{name = Name, value = false}.
 
 
 read_frame(Stream) ->
-    {ok, <<BinId:4/binary,SyncsafeSize:32,Flags:2/binary>>} = id3v2_stream:read(Stream, 10),
-    Size = id3v2_misc:read_syncsafe_int(SyncsafeSize),
+    {ok, <<BinId:4/binary,SyncsafeSize:32,Flags:2/binary>>} = id3erl_stream:read(Stream, 10),
+    Size = id3erl_misc:read_syncsafe_int(SyncsafeSize),
     case Size of
         0 -> padding;
         _ ->
             Id = binary_to_list(BinId),
             RawData = read_frame_data(Stream, Size),
-            ParsedData = id3v2_native_frames:parse(Id, RawData),
+            ParsedData = id3erl_native_frames:parse(Id, RawData),
             #id3_frame{
                     id = Id,
                     size = Size,
@@ -291,14 +291,14 @@ read_frame(Stream) ->
     end.
 
 read_frame_data(Stream, Size) ->
-    {ok, Data} = id3v2_stream:read(Stream, Size), Data.
+    {ok, Data} = id3erl_stream:read(Stream, Size), Data.
 
 
 %%%%%%%%
 %% API
-get_header(Srv) -> id3v2_misc:call(Srv, {get_header}, ?TIMEOUT).
-get_footer(Srv) -> id3v2_misc:call(Srv, {get_footer}, ?TIMEOUT).
-get_frame(Srv, Id) -> id3v2_misc:call(Srv, {get_frame, Id}, ?TIMEOUT).
-get_tag(Srv) -> id3v2_misc:call(Srv, {get_tag}, ?TIMEOUT).
-read_next_frame(Srv) -> id3v2_misc:call(Srv, {read_next_frame}, ?TIMEOUT).
-stop(Srv) -> id3v2_misc:cast(Srv, {stop}).
+get_header(Srv) -> id3erl_misc:call(Srv, {get_header}, ?TIMEOUT).
+get_footer(Srv) -> id3erl_misc:call(Srv, {get_footer}, ?TIMEOUT).
+get_frame(Srv, Id) -> id3erl_misc:call(Srv, {get_frame, Id}, ?TIMEOUT).
+get_tag(Srv) -> id3erl_misc:call(Srv, {get_tag}, ?TIMEOUT).
+read_next_frame(Srv) -> id3erl_misc:call(Srv, {read_next_frame}, ?TIMEOUT).
+stop(Srv) -> id3erl_misc:cast(Srv, {stop}).

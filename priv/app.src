@@ -1,5 +1,5 @@
 %% Copyright
-{application, id3v2, [
+{application, [
     {description, "Implementation of id2v2"},
     {registered, []},
     {applications, [

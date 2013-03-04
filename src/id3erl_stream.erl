@@ -1,5 +1,5 @@
 %% Copyright
--module(id3v2_stream).
+-module(id3erl_stream).
 -author("Nikolay Mavrenkov (koluch@koluch.ru)").
 
 %% API
@@ -20,4 +20,4 @@ create_by_file(FileName) ->
     Pid = spawn(fun() -> loop(File) end),
     {ok, Pid}.
 
-read(Id, Length) -> id3v2_misc:call(Id, {read, Length}, ?TIMEOUT).
+read(Id, Length) -> id3erl_misc:call(Id, {read, Length}, ?TIMEOUT).

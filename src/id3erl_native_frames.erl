@@ -1,5 +1,5 @@
 %% Copyright
--module(id3v2_native_frames).
+-module(id3erl_native_frames).
 -author("Nikolay Mavrenkov (koluch@koluch.ru)").
 -include("../include/id3v2.hrl").
 
