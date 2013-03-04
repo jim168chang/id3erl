@@ -1,4 +1,4 @@
-%% Copyright
+%% Template for generate .app file
 {application, [
     {description, "Implementation of id2v2"},
     {registered, []},
