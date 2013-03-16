@@ -1,0 +1,4 @@
+%% Template for generate .app file
+{application,id3erl,
+             [{vsn,"1.0.1"},
+              {description,"Implementation of id2v2"}]}.

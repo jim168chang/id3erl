@@ -1,4 +1,4 @@
-ROOT=..
+ROOT=.
 APP_NAME=id3erl
 VERSION=0.1.0
 FULL_APP_NAME=$(APP_NAME)-$(VERSION)
@@ -15,9 +15,8 @@ build: clean
 	mkdir $(BUILD_DIR)
 	mkdir $(BUILD_DIR)/ebin
 	erlc -o $(BUILD_DIR)/ebin $(ROOT)/src/*.erl
-	./generate_app_file.esh $(APP_NAME) $(VERSION)
+	./generate_app_file.esh app.src $(ROOT)/$(FULL_APP_NAME)/ebin/$(APP_NAME).app
 	cp -r $(ROOT)/include $(BUILD_DIR)
-	mv $(APP_NAME).app $(BUILD_DIR)/ebin
 
 
 install: build
