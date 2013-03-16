@@ -15,7 +15,7 @@ build: clean
 	mkdir $(BUILD_DIR)
 	mkdir $(BUILD_DIR)/ebin
 	erlc -o $(BUILD_DIR)/ebin $(ROOT)/src/*.erl
-	./generate_app_file.esh app.src $(ROOT)/$(FULL_APP_NAME)/ebin/$(APP_NAME).app
+	./priv/generate_app_file.esh ./priv/app.src $(ROOT)/$(FULL_APP_NAME)/ebin/$(APP_NAME).app
 	cp -r $(ROOT)/include $(BUILD_DIR)
 
 
