@@ -1,0 +1,53 @@
+#!/usr/bin/env escript
+
+%% Copyright
+-author("Nikolay Mavrenkov (koluch@koluch.ru)").
+
+-include_lib("kernel/include/file.hrl").
+%% API
+-export([]).
+
+main(Args) ->
+    case lists:nth(1,Args) of
+        "upgrade" -> copy_fixed();
+        Unknown -> e("Unknown command - " ++ Unknown)
+    end.
+
+
+copy_fixed() ->
+    {ok, AllFiles} = get_all_files("fixed",""),
+    lists:map(fun(File) ->
+        case File of
+            {FileName, regular} ->
+
+                file:copy("fixed/" ++ FileName, "to/" ++ FileName);
+            {FileName, directory} ->
+                file:make_dir("to/" ++ FileName)
+        end
+    end,AllFiles),
+    io:format("AllFiles: ~p~n", [AllFiles]).
+
+get_all_files(Folder,Prefix) ->
+    io:format("~n~nFolder: ~p, Prefix: ~p~n", [Folder,Prefix]),
+    case file:list_dir(Folder ++ "/" ++ Prefix) of
+        {ok, AllFiles} ->
+            io:format("AllFiles: ~p~n", [AllFiles]),
+            ClearedList = lists:map(fun(NextFileName) ->
+                RelativeFileName = Prefix ++ NextFileName,
+                {ok, FileInfo} = file:read_file_info(Folder ++ "/" ++ RelativeFileName),
+                {RelativeFileName, FileInfo#file_info.type}
+            end,AllFiles),
+            io:format("Cleared list: ~p~n", [ClearedList]),
+            Result = lists:flatmap(fun(File) ->
+                case File of
+                    {Name, directory} -> {ok, SubFiles} = get_all_files(Folder,Name ++ "/"),[File | SubFiles];
+                    {_, _} -> [File]
+                end
+            end, ClearedList),
+            {ok, Result};
+        {error, Why} -> {error, Why}
+    end.
+
+
+
+e(Msg) -> error("ERROR: " ++ Msg).
