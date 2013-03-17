@@ -9,23 +9,37 @@
 
 main(Args) ->
     case lists:nth(1,Args) of
-        "upgrade" -> copy_fixed();
+        "upgrade" ->
+            {ok, [Settings]} = file:consult("build.config"),
+            copy_fixed(Settings);
         Unknown -> e("Unknown command - " ++ Unknown)
     end.
 
 
-copy_fixed() ->
+copy_fixed(Settings) ->
+    io:format("Settigns: ~p~n", [Settings]),
     {ok, AllFiles} = get_all_files("fixed",""),
     lists:map(fun(File) ->
         case File of
             {FileName, regular} ->
-
-                file:copy("fixed/" ++ FileName, "to/" ++ FileName);
+                io:format(">>> Upgrade: copy file ~p~n", [FileName]),
+                {ok, FileContent} = file:read_file("templates/" ++ FileName),
+                NewContent = replace_all(FileContent, Settings),
+                file:write_file("/home/koluch/dev/erlang/id3erl/" ++ FileName, NewContent);
             {FileName, directory} ->
-                file:make_dir("to/" ++ FileName)
+                io:format(">>> Upgrade: make dir ~p~n", [FileName]),
+                file:make_dir("/home/koluch/dev/erlang/id3erl/" ++ FileName)
         end
     end,AllFiles),
     io:format("AllFiles: ~p~n", [AllFiles]).
+
+replace_all(FileBody, []) -> FileBody;
+replace_all(FileBody, [{Name,Value}|Rest]) ->
+    {ok, Regexp} = re:compile("{\\{"++atom_to_list(Name)++"}\\}"),
+    NewBody = re:replace(FileBody, Regexp, Value),
+    replace_all(NewBody, Rest).
+
+
 
 get_all_files(Folder,Prefix) ->
     io:format("~n~nFolder: ~p, Prefix: ~p~n", [Folder,Prefix]),

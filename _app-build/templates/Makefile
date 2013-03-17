@@ -1,25 +1,25 @@
 ROOT=.
 BUILD_DIR=$(ROOT)
-APP_NAME={{description}}
+APP_NAME={{app_name}}
 VERSION={{vsn}}
 FULL_APP_NAME=$(APP_NAME)-$(VERSION)
 
 all: build
 
 clean:
-	rm -rf $(ROOT)/ebin
+	rm -rf $(ROOT)/ebin/*.beam
 	rm -rf *.dump
 
 build: clean
-	rm -rf $(BUILD_DIR)/ebin/*.beam
 	erlc -o $(ROOT)/ebin $(ROOT)/src/*.erl
-	$(ROOT)/priv/generate_app_file.esh $(ROOT)/priv/app.src $(ROOT)/ebin/$(APP_NAME).app
 
-install: build
-	rm -rf $(FULL_APP_NAME)
+pkg: build
+	rm -rf $(APP_NAME)-*
 	mkdir $(FULL_APP_NAME)
 	cp -r $(ROOT)/ebin $(FULL_APP_NAME)
 	cp -r $(ROOT)/include $(FULL_APP_NAME)
+
+install: pkg
 	rm -rf ~/.erlang_libs/$(APP_NAME)-*
 	mv $(FULL_APP_NAME) ~/.erlang_libs/
 
