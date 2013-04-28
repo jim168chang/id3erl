@@ -1,0 +1,16 @@
+#!/usr/bin/env escript
+
+%% Copyright
+-author("Nikolay Mavrenkov (koluch@koluch.ru)").
+
+-include_lib("kernel/include/file.hrl").
+%% API
+-export([]).
+-define(APP_ROOT, ".").
+-define(TOOL_ROOT, "./_app-build").
+
+
+%% todo: create ebin/*.app file according to settings
+%% todo: generate Makefile for simple build without build-tool (maybe, only if it doesn't exists)
+
+main(Args) -> ok.

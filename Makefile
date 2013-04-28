@@ -11,7 +11,11 @@ clean:
 	rm -rf *.dump
 
 build: clean
+	rm -rf $(ROOT)/ebin
+	mkdir $(ROOT)/ebin
 	erlc -o $(ROOT)/ebin $(ROOT)/src/*.erl
+	chmod a+x $(ROOT)/priv/generate_app_file.esh
+	$(ROOT)/priv/generate_app_file.esh $(ROOT)/priv/app.src $(ROOT)/ebin/$(APP_NAME).app
 
 pkg: build
 	rm -rf $(APP_NAME)-*

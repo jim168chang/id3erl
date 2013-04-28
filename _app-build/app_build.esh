@@ -6,11 +6,13 @@
 -include_lib("kernel/include/file.hrl").
 %% API
 -export([]).
+-define(APP_ROOT, ".").
+-define(TOOL_ROOT, "./_app-build").
 
 main(Args) ->
     case lists:nth(1,Args) of
         "upgrade" ->
-            {ok, [Settings]} = file:consult("build.config"),
+            {ok, [Settings]} = file:consult(?APP_ROOT ++ "/build.config"),
             copy_fixed(Settings);
         Unknown -> e("Unknown command - " ++ Unknown)
     end.
@@ -18,40 +20,38 @@ main(Args) ->
 
 copy_fixed(Settings) ->
     io:format("Settigns: ~p~n", [Settings]),
-    {ok, AllFiles} = get_all_files("fixed",""),
+    {ok, AllFiles} = get_all_files(?TOOL_ROOT ++ "/templates",""),
     lists:map(fun(File) ->
         case File of
             {FileName, regular} ->
-                io:format(">>> Upgrade: copy file ~p~n", [FileName]),
-                {ok, FileContent} = file:read_file("templates/" ++ FileName),
+                FullResultFileName = ?APP_ROOT ++ "/" ++ FileName,
+                io:format(">>> Upgrade: copy file ~p~n", [FullResultFileName]),
+                {ok, FileContent} = file:read_file(?TOOL_ROOT ++ "/templates/" ++ FileName),
                 NewContent = replace_all(FileContent, Settings),
-                file:write_file("/home/koluch/dev/erlang/id3erl/" ++ FileName, NewContent);
+                file:write_file(FullResultFileName, NewContent);
             {FileName, directory} ->
-                io:format(">>> Upgrade: make dir ~p~n", [FileName]),
-                file:make_dir("/home/koluch/dev/erlang/id3erl/" ++ FileName)
+                FullResultFileName = ?APP_ROOT ++ "/" ++ FileName,
+                io:format(">>> Upgrade: make dir ~p~n", [FullResultFileName]),
+                file:make_dir(FullResultFileName)
         end
-    end,AllFiles),
-    io:format("AllFiles: ~p~n", [AllFiles]).
+    end,AllFiles).
 
 replace_all(FileBody, []) -> FileBody;
 replace_all(FileBody, [{Name,Value}|Rest]) ->
-    {ok, Regexp} = re:compile("{\\{"++atom_to_list(Name)++"}\\}"),
+    {ok, Regexp} = re:compile("##\\["++atom_to_list(Name)++"\\]##"),
     NewBody = re:replace(FileBody, Regexp, Value),
     replace_all(NewBody, Rest).
 
 
 
 get_all_files(Folder,Prefix) ->
-    io:format("~n~nFolder: ~p, Prefix: ~p~n", [Folder,Prefix]),
     case file:list_dir(Folder ++ "/" ++ Prefix) of
         {ok, AllFiles} ->
-            io:format("AllFiles: ~p~n", [AllFiles]),
             ClearedList = lists:map(fun(NextFileName) ->
                 RelativeFileName = Prefix ++ NextFileName,
                 {ok, FileInfo} = file:read_file_info(Folder ++ "/" ++ RelativeFileName),
                 {RelativeFileName, FileInfo#file_info.type}
             end,AllFiles),
-            io:format("Cleared list: ~p~n", [ClearedList]),
             Result = lists:flatmap(fun(File) ->
                 case File of
                     {Name, directory} -> {ok, SubFiles} = get_all_files(Folder,Name ++ "/"),[File | SubFiles];

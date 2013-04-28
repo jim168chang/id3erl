@@ -1,0 +1,4 @@
+%% Template for generate .app file
+{application,##[app_name]##,
+             [{vsn,"##[vsn]##"},
+              {description,"##[description]##"}]}.
