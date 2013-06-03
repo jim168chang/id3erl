@@ -7,8 +7,6 @@ BUILD_DIR=$(ROOT)
 PKG_DIR=$(ROOT)/priv/pkg
 CURRENT_PKG_DIR=$(ROOT)/priv/pkg/$(FULL_APP_NAME)
 
-include id3erl.mk
-
 all: pkg
 
 clean:
