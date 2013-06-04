@@ -9,12 +9,18 @@ CURRENT_PKG_DIR=$(ROOT)/priv/pkg/$(FULL_APP_NAME)
 
 all: pkg
 
-clean:
-	rm -rf $(ROOT)/ebin/
-	rm -rf $(CURRENT_PKG_DIR)
+clean_tmp:
 	rm -rf *.dump
 
-ebin: clean
+clean_ebin:
+	rm -rf $(ROOT)/ebin/
+
+clean_pkg:
+	rm -rf $(CURRENT_PKG_DIR)
+
+clean: clean_ebin clean_tmp clean_pkg
+
+ebin: clean_ebin
 	rm -rf $(ROOT)/ebin
 	mkdir $(ROOT)/ebin
 	erlc -o $(ROOT)/ebin $(ROOT)/src/*.erl
