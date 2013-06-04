@@ -18,7 +18,7 @@ clean_ebin:
 clean_pkg:
 	rm -rf $(CURRENT_PKG_DIR)
 
-clean: clean_ebin clean_tmp clean_pkg
+clean: clean_ebin clean_tmp
 
 ebin: clean_ebin
 	rm -rf $(ROOT)/ebin
@@ -27,7 +27,7 @@ ebin: clean_ebin
 	chmod a+x $(ROOT)/priv/generate_app_file.esh
 	$(ROOT)/priv/generate_app_file.esh $(ROOT)/priv/app.src $(ROOT)/ebin/$(APP_NAME).app
 
-pkg: ebin
+pkg: ebin clean_pkg
 	rm -rf $(APP_NAME)-*
 	mkdir $(CURRENT_PKG_DIR)
 	cp -r $(ROOT)/ebin $(CURRENT_PKG_DIR)
