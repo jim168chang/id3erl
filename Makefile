@@ -18,7 +18,7 @@ clean_ebin:
 clean_pkg:
 	rm -rf $(CURRENT_PKG_DIR)
 
-clean: clean_ebin clean_tmp
+clean: clean_ebin clean_tmp clean_pkg
 
 ebin: clean_ebin
 	rm -rf $(ROOT)/ebin
